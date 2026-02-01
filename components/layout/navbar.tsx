@@ -9,8 +9,33 @@ import { ALL_TOOLS } from "@/config/tools";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+// Define the rendering order for the columns
+const COL_1_IDS = ["merge-pdf", "split-pdf", "compress-pdf", "pdf-to-jpg", "jpg-to-pdf"];
+const COL_2_IDS = ["word-to-pdf", "protect-pdf", "unlock-pdf", "rotate-pdf", "remove-pages"];
+const COL_3_IDS = ["organize-pdf", "add-page-numbers", "watermark-pdf", "sign-pdf"];
+
 export function Navbar() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    // Helper to get tool config
+    const getTool = (id: string) => ALL_TOOLS.find((t) => t.id === id);
+
+    const renderToolItem = (id: string) => {
+        const tool = getTool(id);
+        if (!tool) return null;
+        return (
+            <Link
+                key={tool.id}
+                href={tool.path}
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors group/item"
+            >
+                <div className="flex-shrink-0 text-slate-400 group-hover/item:text-blue-500 transition-colors">
+                    <tool.icon className="h-4 w-4" />
+                </div>
+                <span className="truncate">{tool.title}</span>
+            </Link>
+        );
+    };
 
     return (
         <nav className="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/70 backdrop-blur-xl">
@@ -35,22 +60,22 @@ export function Navbar() {
                                 <ChevronDown className="h-4 w-4 transition-transform duration-200 group-hover:rotate-180" />
                             </button>
 
-                            {/* Dropdown Content */}
-                            <div className="absolute top-full left-0 mt-2 w-64 origin-top-right opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 z-50">
-                                <div className="rounded-xl border border-slate-200/60 bg-white/90 backdrop-blur-xl p-1.5 shadow-xl shadow-slate-200/50 ring-1 ring-black/5">
-                                    <div className="grid gap-0.5">
-                                        {ALL_TOOLS.map((tool) => (
-                                            <Link
-                                                key={tool.id}
-                                                href={tool.path}
-                                                className="flex items-center space-x-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                            >
-                                                <div className="flex-shrink-0 text-slate-400 group-hover/item:text-blue-500 transition-colors">
-                                                    <tool.icon className="h-4 w-4" />
-                                                </div>
-                                                <span className="truncate">{tool.title}</span>
-                                            </Link>
-                                        ))}
+                            {/* Dropdown Content - Mega Menu Style */}
+                            <div className="absolute top-full left-0 mt-2 w-[600px] origin-top-left opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 z-50">
+                                <div className="rounded-xl border border-slate-200/60 bg-white/95 backdrop-blur-xl p-6 shadow-xl shadow-slate-200/50 ring-1 ring-black/5">
+                                    <div className="grid grid-cols-3 gap-6">
+                                        {/* Column 1 */}
+                                        <div className="flex flex-col space-y-1">
+                                            {COL_1_IDS.map(renderToolItem)}
+                                        </div>
+                                        {/* Column 2 */}
+                                        <div className="flex flex-col space-y-1">
+                                            {COL_2_IDS.map(renderToolItem)}
+                                        </div>
+                                        {/* Column 3 */}
+                                        <div className="flex flex-col space-y-1">
+                                            {COL_3_IDS.map(renderToolItem)}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
