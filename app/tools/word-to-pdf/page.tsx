@@ -18,7 +18,7 @@ export default function WordToPdfPage() {
                 <h2 className="text-3xl font-bold text-slate-900">Coming Soon</h2>
                 <p className="text-slate-600 max-w-lg text-lg leading-relaxed">
                     We are building a privacy-first Word conversion engine that runs entirely in your browser.
-                    No uploads, no servers, just pure client-side magic.
+                    No servers, No storing data, No tracking just pure client-side magic.
                 </p>
                 <div className="p-4 bg-blue-50 text-blue-800 rounded-lg text-sm font-medium">
                     Expected Launch: Next Week

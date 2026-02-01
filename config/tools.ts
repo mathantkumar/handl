@@ -12,7 +12,8 @@ import {
     LayoutGrid,
     Hash,
     Stamp,
-    PenLine
+    PenLine,
+    Sparkles
 } from "lucide-react";
 
 export interface Tool {
@@ -23,10 +24,29 @@ export interface Tool {
     path: string;
     category: "Edit" | "Convert" | "Security";
     isComingSoon?: boolean;
+    isNew?: boolean;
     content?: string; // HTML content for SEO
 }
 
 export const ALL_TOOLS: Tool[] = [
+    {
+        id: "summarize-pdf",
+        title: "Summarize PDF (Beta)",
+        description: "Private AI summarizer running 100% on your device.",
+        icon: Sparkles,
+        path: "/tools/summarize-pdf",
+        category: "Convert",
+        isNew: true,
+        content: `
+            <h2>Private AI Summarization</h2>
+            <p>Summarize lengthy documents instantly without your data ever leaving your browser. Handl uses a lightweight AI model running directly on your device to read and condense your PDFs.</p>
+            <h3>How it works</h3>
+            <ul>
+                <li><strong>Local Intelligence:</strong> We run a distilled transformer model in your browser.</li>
+                <li><strong>Privacy First:</strong> No API calls to OpenAI or Anthropic. Your text stays local.</li>
+            </ul>
+        `
+    },
     {
         id: "merge-pdf",
         title: "Merge PDF",

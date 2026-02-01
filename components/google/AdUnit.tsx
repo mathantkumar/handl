@@ -1,82 +1,64 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 interface AdUnitProps {
     slot: string;
     format?: "auto" | "fluid" | "rectangle" | "vertical" | "horizontal";
-    responsive?: boolean;
-    className?: string; // For wrapper styling
-    style?: React.CSSProperties; // For custom inline styles on the ins tag
+    className?: string;
+    style?: React.CSSProperties;
 }
 
-export function AdUnit({
-    slot,
-    format = "auto",
-    responsive = true,
-    className,
-    style
-}: AdUnitProps) {
-    const initialized = useRef(false);
-    const [isLoaded, setIsLoaded] = useState(false);
-    const isDev = process.env.NODE_ENV === "development";
+export function AdUnit({ slot, format = "auto", className = "", style }: AdUnitProps) {
+    const [isMounted, setIsMounted] = useState(false);
+
+    // --- CONFIGURATION ---
+    // true  = Show Gray Box (Best for layout testing in Dev & Live)
+    // false = Show Real Google Ads (Best for final launch)
+    const SHOW_SAMPLE_AD = true;
 
     useEffect(() => {
-        // Prevent double initialization in strict mode or if already loaded
-        if (initialized.current || isDev) return;
+        setIsMounted(true);
+    }, []);
 
-        try {
-            // @ts-ignore
-            (window.adsbygoogle = window.adsbygoogle || []).push({});
-            initialized.current = true;
-            setIsLoaded(true);
-        } catch (err) {
-            console.error("AdSense Error:", err);
-            // Don't set isLoaded to true if there's an error
-        }
-    }, [isDev]);
-
-    // If in dev mode or not loaded effectively (though we can't easily detect "filled" state from AdSense script reliably without callbacks, 
-    // sticking to the request "if ... in development mode... height zero" part mostly. 
-    // For "not loaded", pushing the script usually doesn't throw synchronously if it's empty, 
-    // usually ad units stay empty if no fill. But we can hide the container initially and show it if we assume success or check size.
-    // However, the prompt asks: "If the ad is not loaded or we are in 'development' mode". 
-    // Standard AdSense doesn't give a "loaded" callback easily. 
-    // We will assume "loaded" means we attempted to push the ad. 
-    // BUT the prompt implies visual collapse. 
-    // Let's hide it in dev mode completely. For "not loaded", 
-    // standard practice is relying on AdSense to collapse if we add `data-ad-format="auto"`. 
-    // But let's follow the instruction: "h-0 overflow-hidden" if dev.
-
-    if (isDev) {
-        return (
-            <div className="h-0 overflow-hidden" aria-hidden="true"></div>
-        );
-    }
+    if (!isMounted) return null;
 
     return (
-        <div
-            className={cn(
-                "w-full flex flex-col items-center justify-center my-8 overflow-hidden min-h-[100px]",
-                // If we wanted to hide empty ads dynamically, we'd need a MutationObserver or checking helper.
-                // For now, let's keep the prompt's main request: Dev mode fix + basic return.
-                className
+        <div className={cn("flex justify-center items-center my-6", className)} style={style}>
+            {SHOW_SAMPLE_AD ? (
+                /* --- SAMPLE TEST AD (Visible Everywhere) --- */
+                <div
+                    className={cn(
+                        "mx-auto bg-zinc-100 dark:bg-zinc-800",
+                        "border-2 border-dashed border-zinc-300 dark:border-zinc-700",
+                        "flex flex-col items-center justify-center",
+                        "rounded-lg text-zinc-400 font-bold text-xs uppercase tracking-widest p-4 cursor-help",
+                        // Force specific dimensions based on format to prevent layout shift
+                        format === "rectangle" && "h-[250px] w-[300px]",
+                        format === "horizontal" && "h-[90px] w-full max-w-[728px]",
+                        format === "vertical" && "h-[600px] w-[160px]"
+                    )}
+                    title={`Ad Slot ID: ${slot}`}
+                >
+                    <span>Ad Space ({format})</span>
+                    <span className="text-[10px] opacity-60 mt-1 font-mono bg-zinc-200 dark:bg-zinc-700 px-1 rounded">
+                        {slot}
+                    </span>
+                </div>
+            ) : (
+                /* --- REAL GOOGLE AD (Visible Everywhere) --- */
+                <div className="w-full text-center">
+                    <ins
+                        className="adsbygoogle"
+                        style={{ display: "block" }}
+                        data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" // Replace with your Real ID
+                        data-ad-slot={slot}
+                        data-ad-format={format}
+                        data-full-width-responsive="true"
+                    />
+                </div>
             )}
-            style={{ minWidth: "250px" }} // Ensure non-zero width for ad calculation
-            aria-hidden={false}
-        >
-            <span className="text-[10px] uppercase tracking-widest text-slate-300 mb-2">Advertisement</span>
-            <div className="w-full flex justify-center">
-                <ins
-                    className="adsbygoogle"
-                    style={{ display: "block", minWidth: "250px", ...style }}
-                    data-ad-client="ca-pub-0000000000000000" // Test ID
-                    data-ad-slot={slot}
-                    data-ad-format={format}
-                    data-full-width-responsive={responsive}
-                />
-            </div>
         </div>
     );
 }

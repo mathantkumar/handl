@@ -7,9 +7,8 @@ interface AdSenseScriptProps {
 }
 
 export function AdSenseScript({ client }: AdSenseScriptProps) {
-    if (process.env.NODE_ENV === "development" || client.includes("0000")) {
-        return null;
-    }
+    // If client ID is missing or invalid, don't load
+    if (!client) return null;
 
     return (
         <Script
