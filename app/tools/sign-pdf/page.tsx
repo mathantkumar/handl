@@ -20,14 +20,11 @@ export default function SignPdfPage() {
     const canvasRef = useRef<PDFCanvasHandle>(null);
 
     // Configure PDF.js worker
+    // Worker is now configured globally in layout.tsx
+    // This useEffect is no longer needed for worker configuration.
     useEffect(() => {
-        const loadPdfJs = async () => {
-            if (typeof window !== "undefined") {
-                const pdfjsLib = await import("pdfjs-dist");
-                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-            }
-        };
-        loadPdfJs();
+        // This useEffect is now empty as the worker is configured globally.
+        // It can be removed if no other initialization is needed here.
     }, []);
 
     const {

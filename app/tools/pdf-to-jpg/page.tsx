@@ -19,7 +19,9 @@ export default function PdfToJpgPage() {
         const loadPdfJs = async () => {
             if (typeof window !== "undefined") {
                 const pdfjsLib = await import("pdfjs-dist");
-                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+                if (!pdfjsLib) throw new Error("PDF.js not loaded");
+
+                // Worker is now configured globally in layout.tsx
             }
         };
         loadPdfJs();

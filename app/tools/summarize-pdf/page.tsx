@@ -134,12 +134,11 @@ ${summary.conclusion}
             const file = files[0];
             const arrayBuffer = await file.arrayBuffer();
 
-            // Dynamic import for pdfjs to avoid server-side issues
-            const pdfJS = await import('pdfjs-dist');
-            pdfJS.GlobalWorkerOptions.workerSrc =
-                `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfJS.version}/pdf.worker.min.js`;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const pdfjsLib = (window as any).pdfjsLib;
+            if (!pdfjsLib) throw new Error('PDF Engine not loaded');
 
-            const pdf = await pdfJS.getDocument({ data: arrayBuffer }).promise;
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
             let fullText = '';
             // Limit to first 10 pages to save token/bandwidth

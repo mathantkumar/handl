@@ -157,17 +157,7 @@ export default function PdfToJsonPage() {
             description="Extract invoice and document data into strict JSON format with Gemini."
             icon={FileJson}
         >
-            {/* Load PDF.js from CDN */}
-            <Script
-                src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
-                strategy="lazyOnload"
-                onLoad={() => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
-                        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                    setIsScriptLoaded(true);
-                }}
-            />
+            {/* Script removed - loaded globally in layout */}
 
             <div className="space-y-8 p-6">
                 {!result ? (
