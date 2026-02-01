@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import Script from 'next/script';
 import { Sparkles, Bot, Copy, Check, RefreshCw, Download, FileText, Lightbulb, Target } from 'lucide-react';
 import { ToolShell } from '@/components/tool-shell';
 import { usePdfProcessor } from '@/hooks/use-pdf-processor';
@@ -21,19 +20,9 @@ export default function SummarizePdfPage() {
     const [summary, setSummary] = useState<SummaryStructure | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isScriptLoaded, setIsScriptLoaded] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    // DEBUG: Check for API Key on mount
-    useState(() => {
-        const key = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-        if (!key) {
-            console.error("API Key missing! Env var not loaded.");
-            setError("Configuration Error: API Key not found. Please restart your server to load .env.local changes.");
-        } else {
-            console.log("API Key loaded:", key.substring(0, 5) + "...");
-        }
-    });
+    // DEBUG check removed as we moved to server-side key
 
     const {
         files,
@@ -46,6 +35,7 @@ export default function SummarizePdfPage() {
         maxFiles: 1,
         acceptedFileTypes: { "application/pdf": [".pdf"] }
     });
+
 
     const handleCopy = () => {
         if (summary) {
@@ -136,10 +126,6 @@ ${summary.conclusion}
 
     const handleSummarize = async () => {
         if (!files.length) return;
-        if (!isScriptLoaded) {
-            setError("PDF Engine is still loading. Please wait a moment.");
-            return;
-        }
 
         setIsLoading(true);
         setError(null);
@@ -148,11 +134,12 @@ ${summary.conclusion}
             const file = files[0];
             const arrayBuffer = await file.arrayBuffer();
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const pdfjsLib = (window as any).pdfjsLib;
-            if (!pdfjsLib) throw new Error('PDF Engine not loaded');
+            // Dynamic import for pdfjs to avoid server-side issues
+            const pdfJS = await import('pdfjs-dist');
+            pdfJS.GlobalWorkerOptions.workerSrc =
+                `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfJS.version}/pdf.worker.min.js`;
 
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const pdf = await pdfJS.getDocument({ data: arrayBuffer }).promise;
 
             let fullText = '';
             // Limit to first 10 pages to save token/bandwidth
@@ -186,18 +173,6 @@ ${summary.conclusion}
             description="Use Google's Gemini 2.5 Flash to summarize documents instantly."
             icon={Sparkles}
         >
-            {/* Load PDF.js from CDN */}
-            <Script
-                src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
-                strategy="lazyOnload"
-                onLoad={() => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
-                        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                    setIsScriptLoaded(true);
-                }}
-            />
-
             <div className="space-y-8 p-6">
                 {!summary ? (
                     <div className="space-y-8">
@@ -234,7 +209,7 @@ ${summary.conclusion}
                                 <div className="flex gap-4">
                                     <Button
                                         onClick={handleSummarize}
-                                        disabled={isLoading || !isScriptLoaded}
+                                        disabled={isLoading}
                                         className="bg-slate-900 text-white hover:bg-slate-800 px-8 py-6 text-lg rounded-xl shadow-xl shadow-slate-900/10"
                                     >
                                         {isLoading ? (

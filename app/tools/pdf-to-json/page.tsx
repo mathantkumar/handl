@@ -18,7 +18,7 @@ export default function PdfToJsonPage() {
 
     // DEBUG: Check for API Key on mount
     useState(() => {
-        const key = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+        const key = process.env.GEMINI_API_KEY;
         if (!key) {
             console.error("API Key missing! Env var not loaded.");
             setError("Configuration Error: API Key not found. Please restart your server to load .env.local changes.");
@@ -55,7 +55,7 @@ export default function PdfToJsonPage() {
 
     // 2. The Gemini API Call
     const generateGeminiJson = async (text: string) => {
-        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY;
 
         if (!apiKey) throw new Error('API Key is missing in .env.local');
 
