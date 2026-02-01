@@ -63,7 +63,7 @@ export function ToolShell({
                         {/* SEO Content Component */}
                         <ToolSEO toolName={title} />
 
-                        <div className="md:hidden">
+                        <div className="lg:hidden">
                             {/* Mobile Sidebar Content */}
                             <MobileSidebar howToUse={howToUse} relatedTools={relatedTools} />
                         </div>

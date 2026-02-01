@@ -27,6 +27,7 @@ export function Footer() {
                             <li><Link href="/tools/compress-pdf" className="hover:text-brand-600">Compress PDF</Link></li>
                             <li><Link href="/tools/pdf-to-jpg" className="hover:text-brand-600">PDF to JPG</Link></li>
                             <li><Link href="/about" className="hover:text-brand-600">About Us</Link></li>
+                            <li><Link href="/blog" className="hover:text-brand-600">Blog</Link></li>
                             <li><Link href="/pricing" className="hover:text-brand-600">Pricing</Link></li>
                         </ul>
                     </div>

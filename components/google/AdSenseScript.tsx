@@ -7,6 +7,10 @@ interface AdSenseScriptProps {
 }
 
 export function AdSenseScript({ client }: AdSenseScriptProps) {
+    if (process.env.NODE_ENV === "development" || client.includes("0000")) {
+        return null;
+    }
+
     return (
         <Script
             id="adsbygoogle-init"

@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Github, ChevronDown } from "lucide-react";
+import { Github, ChevronDown, Menu, X } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 import { ALL_TOOLS } from "@/config/tools";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export function Navbar() {
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
     return (
         <nav className="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/70 backdrop-blur-xl">
             <Container>
@@ -52,15 +56,18 @@ export function Navbar() {
                             </div>
                         </div>
 
+                        <Link href="/blog" className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">
+                            Blog
+                        </Link>
                         <Link href="/pricing" className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">
                             Pricing
                         </Link>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center space-x-4">
+                    {/* Desktop Actions */}
+                    <div className="hidden md:flex items-center space-x-4">
                         <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex text-slate-500 hover:text-slate-900">
-                            <Link href="https://github.com" target="_blank">
+                            <Link href="https://github.com/mathantkumar/handl" target="_blank">
                                 <Github className="mr-2 h-4 w-4" />
                                 GitHub
                             </Link>
@@ -69,7 +76,50 @@ export function Navbar() {
                             Get Started
                         </Button>
                     </div>
+
+                    {/* Mobile Menu Button */}
+                    <button
+                        className="md:hidden p-2 text-slate-600"
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    >
+                        {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                    </button>
                 </div>
+
+                {/* Mobile Menu */}
+                {isMobileMenuOpen && (
+                    <div className="md:hidden border-t border-slate-100 py-4 space-y-4 h-[calc(100vh-64px)] overflow-y-auto">
+                        <div className="grid grid-cols-2 gap-2">
+                            {ALL_TOOLS.map((tool) => (
+                                <Link
+                                    key={tool.id}
+                                    href={tool.path}
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className="flex flex-col items-center justify-center p-4 rounded-xl bg-slate-50 hover:bg-blue-50 transition-colors text-center space-y-2 border border-slate-100"
+                                >
+                                    <tool.icon className="h-6 w-6 text-blue-500" />
+                                    <span className="text-xs font-medium text-slate-700">{tool.title}</span>
+                                </Link>
+                            ))}
+                        </div>
+                        <div className="space-y-2 pt-4 border-t border-slate-100">
+                            <Link
+                                href="/blog"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className="block px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
+                            >
+                                Blog
+                            </Link>
+                            <Link
+                                href="/pricing"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className="block px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
+                            >
+                                Pricing
+                            </Link>
+                        </div>
+                    </div>
+                )}
             </Container>
         </nav>
     );
