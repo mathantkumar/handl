@@ -13,7 +13,8 @@ import {
     Hash,
     Stamp,
     PenLine,
-    Sparkles
+    Sparkles,
+    Braces
 } from "lucide-react";
 
 export interface Tool {
@@ -44,6 +45,25 @@ export const ALL_TOOLS: Tool[] = [
             <ul>
                 <li><strong>Local Intelligence:</strong> We run a distilled transformer model in your browser.</li>
                 <li><strong>Privacy First:</strong> No API calls to OpenAI or Anthropic. Your text stays local.</li>
+            </ul>
+        `
+    },
+    {
+        id: "pdf-to-json",
+        title: "PDF to JSON",
+        description: "Extract structured data like invoice totals and dates into clean JSON using local AI.",
+        icon: Braces,
+        path: "/tools/pdf-to-json",
+        category: "Convert",
+        isNew: true,
+        content: `
+            <h2>Extract Structured Data with Local AI</h2>
+            <p>Turn unstructured PDFs like invoices, receipts, and forms into clean, usable JSON data. Handl uses a powerful local AI model to read and understand your documents.</p>
+            <h3>How it works</h3>
+            <ul>
+                <li><strong>Local Intelligence:</strong> We run the LaMini-Flan-T5 model directly in your browser.</li>
+                <li><strong>Privacy First:</strong> Your financial data never leaves your device. No API calls, no servers.</li>
+                <li><strong>Structured Output:</strong> Get precise JSON output ready for your database or API.</li>
             </ul>
         `
     },

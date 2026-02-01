@@ -1,34 +1,39 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import Script from "next/script";
-import { Sparkles, Bot, Copy, Check, RefreshCw } from "lucide-react";
-import { ToolShell } from "@/components/tool-shell";
-import { usePdfProcessor } from "@/hooks/use-pdf-processor";
-import { cn } from "@/lib/utils";
-import { AIProgressModal } from "@/components/AIProgressModal";
+import { useState } from 'react';
+import Script from 'next/script';
+import { Sparkles, Bot, Copy, Check, RefreshCw, Download, FileText, Lightbulb, Target } from 'lucide-react';
+import { ToolShell } from '@/components/tool-shell';
+import { usePdfProcessor } from '@/hooks/use-pdf-processor';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { BrandIcon } from '@/components/BrandIcon';
+import { jsPDF } from 'jspdf';
+
+interface SummaryStructure {
+    title: string;
+    core_message: string;
+    key_points: string[];
+    conclusion: string;
+}
 
 export default function SummarizePdfPage() {
-    const [summary, setSummary] = useState<string | null>(null);
-    const [loadingState, setLoadingState] = useState<{ isOpen: boolean; progress: number; status: string; error?: string }>({
-        isOpen: false,
-        progress: 0,
-        status: "loading"
-    });
-
-    // Script load state
+    const [summary, setSummary] = useState<SummaryStructure | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [isScriptLoaded, setIsScriptLoaded] = useState(false);
-
-    // Use useRef for worker as requested for stability
-    const workerRef = useRef<Worker | null>(null);
     const [copied, setCopied] = useState(false);
 
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            workerRef.current?.terminate();
-        };
-    }, []);
+    // DEBUG: Check for API Key on mount
+    useState(() => {
+        const key = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+        if (!key) {
+            console.error("API Key missing! Env var not loaded.");
+            setError("Configuration Error: API Key not found. Please restart your server to load .env.local changes.");
+        } else {
+            console.log("API Key loaded:", key.substring(0, 5) + "...");
+        }
+    });
 
     const {
         files,
@@ -42,234 +47,316 @@ export default function SummarizePdfPage() {
         acceptedFileTypes: { "application/pdf": [".pdf"] }
     });
 
-    const handleReset = () => {
-        setSummary(null);
-        setLoadingState({ isOpen: false, progress: 0, status: "loading" });
-        resetFiles();
-    };
-
     const handleCopy = () => {
         if (summary) {
-            navigator.clipboard.writeText(summary);
+            const textToCopy = `
+TITLE: ${summary.title}
+\nCORE MESSAGE:
+${summary.core_message}
+\nKEY POINTS:
+${summary.key_points.map(p => `• ${p}`).join('\n')}
+\nCONCLUSION:
+${summary.conclusion}
+            `.trim();
+
+            navigator.clipboard.writeText(textToCopy);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }
     };
 
+    const handleReset = () => {
+        setSummary(null);
+        setError(null);
+        resetFiles();
+    };
+
+    const handleDownloadPDF = () => {
+        if (!summary) return;
+        const doc = new jsPDF();
+
+        // Title
+        doc.setFontSize(20);
+        doc.setTextColor(40);
+        doc.text("Document Summary", 20, 20);
+
+        // Core Message
+        doc.setFontSize(14);
+        doc.setTextColor(59, 130, 246); // Blue
+        doc.text("Core Message", 20, 40);
+
+        doc.setFontSize(11);
+        doc.setTextColor(60);
+        const coreLines = doc.splitTextToSize(summary.core_message, 170);
+        doc.text(coreLines, 20, 50);
+
+        // Key Points
+        let yPos = 50 + (coreLines.length * 7) + 10;
+        doc.setFontSize(14);
+        doc.setTextColor(0);
+        doc.text("Key Insights", 20, yPos);
+
+        yPos += 10;
+        doc.setFontSize(11);
+        doc.setTextColor(60);
+        summary.key_points.forEach((point) => {
+            const pointLines = doc.splitTextToSize(`• ${point}`, 170);
+            doc.text(pointLines, 20, yPos);
+            yPos += (pointLines.length * 7) + 3;
+        });
+
+        // Conclusion
+        yPos += 10;
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(100);
+        const concLines = doc.splitTextToSize(`Conclusion: ${summary.conclusion}`, 170);
+        doc.text(concLines, 20, yPos);
+
+        doc.save("summary-report.pdf");
+    };
+
+    // 2. The Internal API Call (Server-Side Logic)
+    const generateSummary = async (text: string) => {
+        // Call our OWN server
+        const response = await fetch('/api/summarize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Summary generation failed');
+        }
+
+        // The server already sends back clean JSON
+        return await response.json();
+    };
+
     const handleSummarize = async () => {
         if (!files.length) return;
-
         if (!isScriptLoaded) {
-            setLoadingState({ isOpen: true, progress: 0, status: "error", error: "PDF Engine is still loading. Please wait a moment." });
+            setError("PDF Engine is still loading. Please wait a moment.");
             return;
         }
 
-        setLoadingState({ isOpen: true, progress: 0, status: "loading" });
+        setIsLoading(true);
+        setError(null);
 
         try {
             const file = files[0];
             const arrayBuffer = await file.arrayBuffer();
 
-            // 1. Access Library from Window (Bypasses Bundler)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const pdfjsLib = (window as any).pdfjsLib;
-            if (!pdfjsLib) throw new Error("PDF Engine failed to load");
+            if (!pdfjsLib) throw new Error('PDF Engine not loaded');
 
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-            const pdf = await loadingTask.promise;
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-            let fullText = "";
-            const maxPages = Math.min(pdf.numPages, 10); // Limit keys
+            let fullText = '';
+            // Limit to first 10 pages to save token/bandwidth
+            const maxPages = Math.min(pdf.numPages, 10);
 
-            // 5. Extract Text
             for (let i = 1; i <= maxPages; i++) {
-                // Update progress based on page extraction (0-30%)
-                const extractionProgress = 30 * (i / maxPages);
-                setLoadingState(prev => ({ ...prev, progress: extractionProgress }));
-
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const pageText = textContent.items.map((item: any) => item.str).join(" ");
-                fullText += pageText + " ";
+                const pageText = textContent.items.map((item: any) => item.str).join(' ');
+                fullText += pageText + ' ';
             }
 
-            setLoadingState(prev => ({ ...prev, progress: 30 })); // Extraction done
+            if (!fullText.trim()) throw new Error("Could not extract text. PDF might be an image/scan.");
 
-            // 6. Initialize AI Worker (if not already)
-            if (!workerRef.current) {
-                workerRef.current = new Worker(new URL("../../workers/ai.worker.js", import.meta.url));
-
-                workerRef.current.onmessage = (event) => {
-                    const { status, output, progress: aiProgress, message, error } = event.data;
-
-                    if (status === "progress") {
-                        // Map worker progress (0-100) to UI progress (30-100)
-                        // If aiProgress is undefined (e.g. initial message), default to 0
-                        const currentProgress = aiProgress || 0;
-                        const uiProgress = 30 + (currentProgress * 0.7);
-
-                        setLoadingState(prev => ({
-                            ...prev,
-                            isOpen: true,
-                            status: "loading",
-                            progress: uiProgress
-                        }));
-                    } else if (status === "complete") {
-                        setSummary(output);
-                        setLoadingState(prev => ({ ...prev, isOpen: false, status: "complete", progress: 100 }));
-                    } else if (status === "error") {
-                        console.error("AI Error:", error);
-                        let friendlyError = error;
-                        if (typeof error === "string" && (error.includes("WebGPU") || error.includes("shader"))) {
-                            friendlyError = "Your browser does not support the required WebGPU features. Please try Chrome or Edge.";
-                        }
-                        setLoadingState(prev => ({ ...prev, isOpen: true, status: "error", error: friendlyError }));
-                    }
-                };
-            }
-
-            // 7. Send to Worker
-            workerRef.current.postMessage({ text: fullText });
+            // Call Server API
+            const aiSummary = await generateSummary(fullText);
+            setSummary(aiSummary);
 
         } catch (err: any) {
-            console.error("Error:", err);
-            setLoadingState(prev => ({ ...prev, isOpen: true, status: "error", error: "Failed to read PDF file. " + err.message }));
+            console.error(err);
+            setError(err.message || 'Something went wrong');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
         <ToolShell
             title="Summarize PDF"
-            description="Use private AI to summarize your document."
+            description="Use Google's Gemini 2.5 Flash to summarize documents instantly."
             icon={Sparkles}
         >
-            {/* LOAD PDF.JS FROM CDN */}
+            {/* Load PDF.js from CDN */}
             <Script
                 src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
                 strategy="lazyOnload"
                 onLoad={() => {
-                    console.log("PDF Engine Loaded");
-                    // Set Worker Source
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
-                        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+                        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                     setIsScriptLoaded(true);
                 }}
             />
 
             <div className="space-y-8 p-6">
                 {!summary ? (
-                    <>
-                        <div
-                            {...getRootProps()}
-                            className={cn(
-                                "border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 relative overflow-hidden group",
-                                isDragActive
-                                    ? "border-purple-500 bg-purple-50/50"
-                                    : "border-slate-200 hover:border-purple-300 hover:bg-slate-50/50"
-                            )}
-                        >
-                            <input {...getInputProps()} />
+                    <div className="space-y-8">
+                        {/* File Upload Section */}
+                        <div className="space-y-4">
+                            <div
+                                {...getRootProps()}
+                                className={cn(
+                                    "border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 relative overflow-hidden group",
+                                    isDragActive
+                                        ? "border-purple-500 bg-purple-50/50"
+                                        : "border-slate-200 hover:border-purple-300 hover:bg-slate-50/50"
+                                )}
+                            >
+                                <input {...getInputProps()} />
 
-                            {/* Decorative Background Blur */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                            <div className="relative z-10">
-                                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-50 text-purple-600 rounded-2xl mb-6 shadow-sm group-hover:scale-105 transition-transform duration-300">
-                                    <Sparkles className="w-10 h-10" />
+                                <div className="relative z-10 flex flex-col items-center">
+                                    <div className="inline-flex items-center justify-center w-16 h-16 bg-white text-slate-400 rounded-xl mb-4 shadow-sm border border-slate-100 group-hover:scale-105 transition-transform">
+                                        {files.length > 0 ? <Check className="w-8 h-8 text-green-500" /> : <Sparkles className="w-8 h-8" />}
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-900 mb-2">
+                                        {files.length > 0 ? files[0].name : "Drop PDF here"}
+                                    </h3>
+                                    <p className="text-slate-500 text-sm">
+                                        {files.length > 0 ? "Ready to summarize" : "Up to 50MB"}
+                                    </p>
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-900 mb-3">
-                                    {files.length > 0 ? files[0].name : "Drop PDF to Summarize"}
-                                </h3>
-                                <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed">
-                                    {files.length > 0
-                                        ? "Ready to analyze. Click 'Summarize Now' below."
-                                        : "Experience the power of local AI. Your document is processed entirely on your device."}
-                                </p>
                             </div>
                         </div>
 
-                        {files.length > 0 && (
-                            <div className="flex justify-center pt-4">
-                                <button
-                                    onClick={handleSummarize}
-                                    disabled={!isScriptLoaded}
-                                    className="inline-flex items-center gap-2 px-10 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {isScriptLoaded ? (
-                                        <>
-                                            <Sparkles className="w-5 h-5" />
-                                            Summarize Now
-                                        </>
-                                    ) : (
-                                        <>
-                                            <RefreshCw className="w-5 h-5 animate-spin" />
-                                            Loading Engine...
-                                        </>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={() => removeFile(files[0])}
-                                    className="ml-4 px-6 py-4 text-slate-500 font-medium hover:text-red-500 transition-colors"
-                                >
-                                    Cancel
-                                </button>
+                        {/* Action Buttons */}
+                        <div className="flex justify-center pt-2">
+                            {files.length > 0 && (
+                                <div className="flex gap-4">
+                                    <Button
+                                        onClick={handleSummarize}
+                                        disabled={isLoading || !isScriptLoaded}
+                                        className="bg-slate-900 text-white hover:bg-slate-800 px-8 py-6 text-lg rounded-xl shadow-xl shadow-slate-900/10"
+                                    >
+                                        {isLoading ? (
+                                            <>
+                                                <RefreshCw className="w-5 h-5 animate-spin mr-2" />
+                                                Summarizing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="w-5 h-5 mr-2" />
+                                                Generate Summary
+                                            </>
+                                        )}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => removeFile(files[0])}
+                                        className="px-6 py-6 text-lg rounded-xl"
+                                        disabled={isLoading}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+
+                        {error && (
+                            <div className="p-4 bg-red-50 text-red-600 rounded-xl text-center text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                                {error}
                             </div>
                         )}
-                    </>
+                    </div>
                 ) : (
-                    /* Result State */
+                    /* Dashboard Result State */
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="bg-white border border-slate-200 rounded-2xl shadow-lg shadow-slate-200/50 overflow-hidden">
-                            {/* Header */}
-                            <div className="bg-slate-50/50 border-b border-slate-100 p-6 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
-                                        <Bot className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-bold text-slate-900">Executive Summary</h2>
-                                        <p className="text-xs text-slate-500">Generated by Handl AI</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleCopy}
-                                    className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors p-2 hover:bg-white rounded-lg"
-                                >
-                                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                                    {copied ? "Copied!" : "Copy"}
-                                </button>
-                            </div>
+                        {/* Download Header */}
+                        <div className="flex justify-end">
+                            <Button
+                                onClick={handleDownloadPDF}
+                                className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors shadow-lg"
+                            >
+                                <Download className="w-4 h-4" />
+                                Download Report
+                            </Button>
+                        </div>
 
-                            {/* Content */}
-                            <div className="p-8">
-                                <div className="prose prose-slate max-w-none prose-p:leading-loose prose-p:text-slate-700">
-                                    <p>{summary}</p>
+                        {/* Title Card */}
+                        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+                            <div className="flex items-start gap-4">
+                                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                                    <FileText className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-900 mb-1">{summary.title}</h2>
+                                    <p className="text-slate-500 text-sm">AI Generated Summary • Gemini 2.5 Flash</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-center pt-4">
-                            <button
-                                onClick={handleReset}
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors"
-                            >
-                                <RefreshCw className="w-4 h-4" />
-                                Summarize Another
-                            </button>
+                        {/* Core Message */}
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-6 relative overflow-hidden">
+                            <div className="flex items-center gap-2 mb-3 text-blue-700 font-bold uppercase tracking-wider text-xs">
+                                <Target className="w-4 h-4" />
+                                Core Message
+                            </div>
+                            <p className="text-lg text-slate-800 leading-relaxed font-medium">
+                                {summary.core_message}
+                            </p>
+                        </div>
+
+                        {/* Key Points Grid */}
+                        <div className="grid md:grid-cols-2 gap-4">
+                            {summary.key_points.map((point, i) => (
+                                <div key={i} className="bg-white border border-slate-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex gap-3">
+                                        <div className="mt-1">
+                                            <div className="w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xs font-bold">
+                                                {i + 1}
+                                            </div>
+                                        </div>
+                                        <p className="text-slate-600 leading-relaxed text-sm">
+                                            {point}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Conclusion */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+                            <div className="flex items-center gap-2 mb-3 text-slate-500 font-bold uppercase tracking-wider text-xs">
+                                <Lightbulb className="w-4 h-4" />
+                                Conclusion
+                            </div>
+                            <p className="text-slate-600 italic">
+                                "{summary.conclusion}"
+                            </p>
+                        </div>
+
+                        <div className="flex justify-center pt-8 border-t border-slate-100">
+                            <div className="flex gap-4">
+                                <Button
+                                    variant="outline"
+                                    onClick={handleCopy}
+                                    className="gap-2"
+                                >
+                                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                    {copied ? "Copied Text" : "Copy Text"}
+                                </Button>
+                                <Button
+
+                                    onClick={handleReset}
+                                    className="gap-2 bg-slate-900 text-white hover:bg-slate-800"
+                                >
+                                    <RefreshCw className="w-4 h-4" />
+                                    Summarize Another
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 )}
             </div>
-
-            {/* AI Progress Modal */}
-            <AIProgressModal
-                isOpen={loadingState.isOpen}
-                progress={loadingState.progress}
-                status={loadingState.status}
-                error={loadingState.error}
-            />
         </ToolShell>
     );
 }

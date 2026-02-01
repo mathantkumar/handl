@@ -12,7 +12,8 @@ import {
     TrashIcon,
     Square2StackIcon,
     SparklesIcon,
-    QueueListIcon
+    QueueListIcon,
+    CommandLineIcon
 } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
@@ -103,6 +104,11 @@ export function BrandIcon({ type, className = "w-12 h-12" }: BrandIconProps) {
         "summarize-pdf": {
             bg: "bg-[#865ed6]",
             icon: SparklesIcon
+        },
+
+        "pdf-to-json": {
+            bg: "bg-zinc-800",
+            icon: CommandLineIcon
         },
 
         // Fallback

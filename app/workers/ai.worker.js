@@ -13,9 +13,9 @@ class AIHandler {
 
     static async getInstance(progress_callback) {
         if (!this.instance) {
-            // 3. Use DistilBART (Fast & Light)
-            this.instance = await pipeline('summarization', 'Xenova/distilbart-cnn-6-6', {
-                quantized: true, // Forces smaller model (~80MB)
+            // 3. Use LaMini-Flan-T5-77M (Ultra Light ~80MB)
+            this.instance = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-77M', {
+                quantized: true, // Forces smaller model
                 progress_callback,
             });
         }
@@ -48,12 +48,15 @@ self.addEventListener('message', async (event) => {
         self.postMessage({ status: 'progress', progress: 100, message: 'Analyzing text...' });
 
         // Run the summary
-        const output = await summarizer(text, {
-            max_new_tokens: 150,
-            min_length: 30,
+        const prompt = `Summarize this text: ${text}`;
+        const output = await summarizer(prompt, {
+            max_new_tokens: 300,
+            do_sample: false,
+            repetition_penalty: 1.5,
+            no_repeat_ngram_size: 3,
         });
 
-        self.postMessage({ status: 'complete', output: output[0].summary_text });
+        self.postMessage({ status: 'complete', output: output[0].generated_text });
 
     } catch (e) {
         console.error(e);
